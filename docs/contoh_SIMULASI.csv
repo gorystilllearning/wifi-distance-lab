@@ -1,0 +1,4 @@
+test_id,device,distance_m,repetition,status,report_status,target_bytes,bytes_received,duration_s,throughput_mbps,rssi_mean_dbm,rssi_min_dbm,rssi_max_dbm,rssi_samples_count,rtt_mean_ms,rtt_loss_pct
+SIMULASI-BUKAN-HASIL-01,esp32,1,1,success,received,10000000,10000000,8,10,-45,-47,-43,32,4.2,0
+SIMULASI-BUKAN-HASIL-02,esp32,20,1,timeout,received,10000000,3000000,60,0.4,-88,-91,-85,240,120,20
+SIMULASI-BUKAN-HASIL-03,macbook,30,1,report_timeout,awaiting_recovery,10000000,,,,,,,,,

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>id.wifidistancelab.rssihelper</string>
+  <key>CFBundleName</key><string>WiFi RSSI Helper</string>
+  <key>CFBundleExecutable</key><string>RSSIHelper</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>0.1.0</string>
+  <key>LSMinimumSystemVersion</key><string>13.0</string>
+  <key>NSPrincipalClass</key><string>NSApplication</string>
+  <key>NSLocationWhenInUseUsageDescription</key><string>Membaca SSID, BSSID dan RSSI Wi-Fi asli untuk eksperimen jarak ke hotspot Windows. Tidak mengirim lokasi ke internet.</string>
+  <key>NSLocationUsageDescription</key><string>Akses informasi Wi-Fi untuk pengukuran RSSI lokal.</string>
+  <key>NSLocationAlwaysAndWhenInUseUsageDescription</key><string>Akses informasi Wi-Fi untuk pengukuran RSSI lokal.</string>
+  <key>NSLocalNetworkUsageDescription</key><string>Menerima payload uji dan membalas echo dari Windows pada jaringan lokal.</string>
+</dict></plist>

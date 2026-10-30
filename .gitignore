@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+.venv/
+hasil/
+pending/
+macos/build/
+esp32/WifiReceiver/config.h
+.DS_Store
+.pio/
+*.zip
