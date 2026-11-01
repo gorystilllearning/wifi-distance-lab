@@ -1,1 +1,2 @@
 # Python 3.11+; standard library only. No pip download required.
+# Optional Matplotlib charts: see requirements-plot.txt and setup_grafik.bat.

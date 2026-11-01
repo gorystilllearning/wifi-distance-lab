@@ -26,3 +26,11 @@ Keamanan: hotspot WPA2/lebih baik, token acak sesi sebelum layanan menerima uji,
 validasi ukuran/framing, port lokal 8765, hanya gunakan jaringan uji tepercaya.
 Tidak ada push GitHub otomatis. Unit/integration tests tidak membuktikan radio,
 izin Tahoe, hotspot Windows offline, atau board asli telah bekerja.
+
+## Grafik (disetujui 2026-11-01)
+Matplotlib opsional di Windows, bukan scikit-learn. Setelah pengukuran/ACK,
+CLI memperbarui tiga PNG jarak vs RSSI/throughput/RTT dalam folder grafik sesi.
+grafik.bat membuat ulang dari CSV. Mean dan SD sampel antarulangan sukses dipisah
+dari titik gagal. Nilai kosong tidak dianggap nol. Gagal tanpa metrik ditandai
+di tepi grafik. Error/missing dependency grafik tidak menggagalkan pengukuran.
+setup_grafik.bat memasang dependensi sebelum eksperimen; runtime tetap offline.

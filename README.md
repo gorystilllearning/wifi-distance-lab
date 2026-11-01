@@ -3,6 +3,8 @@
 Program eksperimen jarak **Windows → MacBook Air M4 (macOS Tahoe)** dan
 **Windows → ESP32-S3-DevKitC-1 N16R8**, bergantian. CLI Windows diluncurkan
 dengan `.bat`. Tidak perlu internet saat eksperimen.
+Grafik **Matplotlib** dapat diperbarui otomatis sesudah setiap uji dan dibuat ulang
+secara manual dari CSV. Pasang dependensi grafik sebelum eksperimen.
 
 **Status validasi:** lihat [docs/VALIDATION.md](docs/VALIDATION.md). Tes TCP lokal
 bukan hasil radio lapangan. Jangan memakai angka dari unit test sebagai data penelitian.
@@ -30,13 +32,17 @@ Windows. Windows tidak dapat membuktikan byte diterima hanya dari keberhasilan
 wifi-distance-lab/
 ├── setup.bat                     # Buat venv, jalankan tes, tanpa pip download
 ├── mulai.bat                     # Program utama Windows
+├── setup_grafik.bat              # Pasang Matplotlib opsional sebelum eksperimen
+├── grafik.bat                    # Buat ulang PNG dari CSV sesi yang dipilih
 ├── requirements.txt              # Standard library Python; tidak ada paket pip
+├── requirements-plot.txt         # Dependensi grafik opsional
 ├── wifi_lab/
 │   ├── controller.py             # Pengirim, RTT, CLI, penerimaan laporan
 │   ├── protocol.py               # TCP JSON/payload framing
 │   ├── receiver.py               # Timer/byte/RSSI di receiver Python
 │   ├── companion.py              # Pendamping Mac dan antrean persisten
-│   └── storage.py                # Record JSON, CSV, ringkasan
+│   ├── storage.py                # Record JSON, CSV, ringkasan
+│   └── plots.py                  # Grafik PNG nonblocking dari CSV
 ├── macos/
 │   ├── RSSIHelper.swift          # CoreWLAN + izin CoreLocation, app lokal
 │   ├── Info.plist
@@ -56,7 +62,9 @@ wifi-distance-lab/
 1. Pasang **Python 3.11 atau lebih baru**, termasuk **Python Launcher (`py`)**.
    Salin seluruh folder proyek ke Windows. Jalankan `setup.bat`.
    Internet hanya diperlukan untuk mengunduh Python/toolchain terlebih dahulu;
-   program ini tidak memasang paket pip.
+   `setup.bat` untuk pengukuran inti tidak memasang paket pip.
+   Untuk grafik, jalankan **`setup_grafik.bat` sekali saat internet tersedia**.
+   Ini memasang Matplotlib ke venv proyek. Setelahnya grafik berjalan offline.
 2. Buka Settings → Network & internet → Mobile hotspot. Atur nama/kata sandi,
    **network band 2,4 GHz**. Aktifkan hotspot. Matikan opsi hotspot otomatis
    dimatikan saat tidak ada client bila tersedia.
@@ -228,7 +236,11 @@ hasil/<tanggal-jam-id>/
 ├── esp32_pengujian.csv
 ├── sampel_rssi.csv
 ├── sampel_rtt.csv
-└── ringkasan.json
+├── ringkasan.json
+└── grafik/                      # PNG diperbarui setelah uji/recovery jika Matplotlib ada
+    ├── jarak_rssi.png
+    ├── jarak_throughput.png
+    └── jarak_rtt.png
 ```
 
 Satu baris CSV pengujian = satu percobaan, bukan rata-rata tiga percobaan.
@@ -352,6 +364,68 @@ Jika ada sukses setelah gagal pada jarak sama, hasilnya campuran, bukan batas pa
    seluruh byte capture sebagai payload: retransmisi/header/control berbeda.
 
 ## 8. Contoh CSV dan grafik
+
+### Grafik otomatis dan manual di Windows
+
+Persiapan satu kali:
+
+```bat
+setup.bat
+setup_grafik.bat
+```
+
+Kemudian jalankan `mulai.bat` seperti biasa. Tiga PNG diperbarui otomatis setelah
+setiap percobaan, pemulihan laporan, dan pencatatan gagal koneksi. Proses ini
+berjalan **setelah timer RTT/payload selesai dan hasil disimpan/di-ACK**, bukan
+di tengah pengukuran. Tidak membuka jendela grafik yang harus ditutup; cukup buka
+PNG di folder sesi jika ingin melihat hasilnya. Viewer gambar mungkin perlu
+dibuka ulang untuk melihat versi PNG terbaru.
+
+Untuk CSV lama tanpa mengulang eksperimen:
+
+```bat
+grafik.bat "hasil\<folder-sesi>"
+```
+
+Atau double-click `grafik.bat` lalu masukkan folder sesi. Folder harus berisi
+`macbook_pengujian.csv` dan/atau `esp32_pengujian.csv` dengan kolom keluaran program.
+Grafik membandingkan perangkat dalam warna berbeda dan menggunakan jarak sebagai
+sumbu X:
+
+- **RSSI**: `rssi_mean_dbm`, dalam dBm;
+- **Throughput payload aplikasi**: `throughput_mbps`, dalam Mbps;
+- **RTT sebelum transfer**: `rtt_mean_ms`, dalam ms.
+
+Titik samar menunjukkan setiap uji sukses; garis/titik utama menunjukkan rata-rata
+**antarulangan sukses pada jarak yang sama**, dengan error bar **standar deviasi
+sampel** jika tersedia minimal dua nilai. Ini bukan confidence interval dan bukan
+minimum/maksimum sampel RSSI dalam satu transfer. Satu nilai tidak diberi SD palsu.
+Jumlah ulangan yang tersedia dapat diperiksa di CSV; gagal tidak dicampur ke
+rata-rata sukses.
+
+Uji gagal dengan nilai valid ditampilkan sebagai **x** pada nilai tersebut.
+Gagal tanpa nilai mendapat penanda **x di tepi atas** grafik, bukan ditempatkan
+pada angka nol. Nilai kosong/NaN/infinity/tidak valid tidak diisi atau diinterpolasi.
+Jika seluruh metrik tidak tersedia, grafik menjelaskan kondisi itu tanpa angka
+pengukuran buatan. CSV kosong/hanya pending tidak menghasilkan grafik palsu.
+CSV sumber tidak diubah oleh pembuat grafik.
+
+Jika Matplotlib belum terpasang, PNG terkunci oleh viewer, atau pembuatan grafik
+bermasalah, pengukuran dan CSV tetap berjalan; program menampilkan peringatan.
+Tutup viewer jika mengunci file, lalu coba lagi `grafik.bat`. Pembuatan PNG dapat
+menambah jeda **antarpercobaan**, tetapi tidak dimasukkan ke durasi transfer/RTT.
+
+Program grafik juga dapat diperiksa pada Mac/Linux (bukan pengganti pengujian BAT):
+
+```sh
+python3 -m pip install -r requirements-plot.txt
+python3 -m wifi_lab.plots "hasil/<folder-sesi>"
+```
+
+Tidak memakai scikit-learn, smoothing, atau model prediksi. Jika ID baris CSV
+diawali `SIMULASI`, judul grafik diberi label simulasi/data campuran secara jelas.
+
+### Contoh CSV berlabel dan penggunaan Excel
 
 [docs/contoh_SIMULASI.csv](docs/contoh_SIMULASI.csv) adalah **contoh buatan** dengan
 subset kolom, **bukan hasil pengukuran**. ID diawali `SIMULASI-` dan file dipisahkan

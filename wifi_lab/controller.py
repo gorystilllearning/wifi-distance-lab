@@ -11,6 +11,7 @@ from pathlib import Path
 
 from .protocol import Wire, ProtocolError, expect, PAYLOAD_BYTES, PORT
 from .storage import Store, atomic_json
+from .plots import plot_session
 
 RESULT_STATUSES = {'success', 'transfer_incomplete', 'timeout', 'connection_disconnected', 'program_error'}
 
@@ -213,6 +214,21 @@ def positive_float(value):
     return number
 
 
+def refresh_plots(directory):
+    """Only called by CLI after measurement/ACK, never inside transfer or RTT."""
+    try:
+        images = plot_session(directory)
+    except ImportError:
+        print('Grafik belum dibuat: jalankan setup_grafik.bat. CSV tetap tersimpan; bisa dibuat ulang lewat grafik.bat.')
+        return False
+    except Exception as exc:
+        print(f'Grafik gagal ({type(exc).__name__}: {exc}); hasil pengukuran tetap tersimpan. Coba grafik.bat nanti.')
+        return False
+    if images:
+        print(f'Grafik PNG diperbarui: {images[0].parent.resolve()}')
+    return bool(images)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Eksperimen Windows hotspot -> Mac/ESP. Tidak perlu internet.')
     parser.add_argument('--bind', default='192.168.137.1', help='IP adaptor hotspot Windows, bukan IP internet')
@@ -242,11 +258,14 @@ def main():
         if old.get('status') == 'pending':
             store.update(ident, {'status': 'report_timeout', 'report_status': 'awaiting_recovery',
                                  'controller_reason': 'Windows stopped before result was committed'})
+    if store.records:
+        refresh_plots(directory)
     controller = Controller(store, token, ssid, args.report_timeout, args.rtt_timeout)
     print(f'\nHasil: {directory.resolve()}\nHotspot: {ssid}\nServer: {args.bind}:{args.port}\nTOKEN SESI: {token}')
     print('Masukkan token ini di pendamping. Jangan upload token/kata sandi ke GitHub.')
     print('Windows tetap di tempat. Target penerima yang dipindahkan. Hubungkan hanya satu target.')
     print('Progres kirim adalah byte masuk socket, BUKAN bukti byte sudah diterima target.')
+    print('Grafik PNG otomatis setelah uji jika Matplotlib terpasang (setup_grafik.bat); tidak membuka jendela.')
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
             listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
@@ -266,6 +285,8 @@ def main():
                         peer = controller.handshake(wire)
                         print(f'Terhubung: {peer["device"]} / {peer["receiver_id"]} / {addr[0]}')
                         print('Laporan tertunda sudah disinkronkan. ringkasan.json diperbarui.')
+                        if store.records:
+                            refresh_plots(directory)
                     except (OSError, EOFError, ProtocolError) as exc:
                         if conn:
                             conn.close()
@@ -287,6 +308,7 @@ def main():
                                         if r['device'] == peer['device'] and r.get('distance_m') == failed_distance]
                             lost = controller.record_unreachable(peer, failed_distance, max(previous, default=0) + 1, args.timeout)
                             print(f'Gagal koneksi dicatat: {lost["test_id"]}; byte/RSSI/throughput tidak diketahui.')
+                            refresh_plots(directory)
                         continue
                 text = input('\nJarak meter bulat >=1; r=hubungkan ulang/ganti target; q=keluar: ').strip().lower()
                 if text == 'q':
@@ -317,6 +339,7 @@ def main():
                     print(f'Throughput: {show(r.get("throughput_mbps"), "Mbps")}; RTT: {show(r.get("rtt_mean_ms"), "ms")}')
                     if r.get('failure_reason') or r.get('controller_reason'):
                         print(r.get('failure_reason') or r.get('controller_reason'))
+                    refresh_plots(directory)
                     if r['status'] != 'success':
                         print('Hasil gagal tetap disimpan. Sambungkan ulang; masukkan jarak sama untuk mencoba ulang.')
                         conn.close()

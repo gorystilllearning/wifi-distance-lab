@@ -10,6 +10,7 @@ if errorlevel 1 goto gagal
 echo.
 echo Siap. Aktifkan hotspot 2.4 GHz lalu jalankan mulai.bat.
 echo Tidak ada paket pip yang perlu diunduh.
+echo Grafik PNG opsional: jalankan setup_grafik.bat sebelum eksperimen saat internet tersedia.
 pause
 exit /b 0
 :gagal

@@ -1,0 +1,2 @@
+# Optional Windows plots. Install BEFORE the offline experiment.
+matplotlib>=3.9,<4

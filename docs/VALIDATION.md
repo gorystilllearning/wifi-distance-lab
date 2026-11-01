@@ -48,3 +48,16 @@ Tidak ada pemeriksaan tersebut yang mengubah pengaturan jaringan atau flash boar
 
 Record waktu eksekusi/perangkat/OS nyata ketika melakukan checklist ini; jangan
 menandainya lulus hanya karena compile atau loopback berhasil.
+
+## Penambahan grafik Matplotlib (2026-11-01)
+- Verifikasi lokal dengan Python **3.13.13** dan Matplotlib **3.11.2**:
+  seluruh **32 tes lulus tanpa skip**, termasuk tes rendering PNG. CLI manual
+  juga membuat ketiga PNG dari fixture yang secara eksplisit berlabel SIMULASI,
+  dan tampilan PNG diperiksa. Ini bukan hasil pengukuran perangkat.
+- Tes tambahan memeriksa mean/SD antarulangan, pemisahan uji gagal, blank/NaN/inf,
+  satu ulangan tanpa SD palsu, CSV BOM, folder/kolom salah, dan CSV tidak berubah.
+- Render PNG memakai backend Agg, tanpa GUI. Dua tes rendering opsional hanya
+  dijalankan bila Matplotlib terpasang; tes penuh dengan dependensi harus tanpa skip.
+- Tidak ada pembacaan radio baru atau perubahan firmware untuk fitur grafik.
+- BAT instalasi/grafik tetap perlu smoke test di Windows asli; rendering lokal di
+  macOS tidak membuktikan perilaku firewall, viewer file locking atau BAT Windows.
