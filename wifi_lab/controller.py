@@ -3,6 +3,7 @@ import argparse
 import math
 import re
 import secrets
+import select
 import socket
 import time
 import uuid
@@ -78,6 +79,9 @@ class Controller:
         pending = hello.get('pending_count', 0)
         if type(pending) is not int or not 0 <= pending <= 16:
             raise ProtocolError('Invalid pending count')
+        # A queued hello can outlive the ESP's welcome deadline while CLI waits for input.
+        if select.select([wire.sock], [], [], 0)[0] and not wire.sock.recv(1, socket.MSG_PEEK):
+            raise EOFError('Receiver already closed queued connection; wait for a fresh connection')
         wire.send({'type': 'welcome', 'protocol': 1})
         for _ in range(pending):
             report = expect(wire, 'result', time.monotonic() + 10)

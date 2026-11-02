@@ -13,6 +13,22 @@ from wifi_lab.storage import Store
 
 
 class SessionTests(unittest.TestCase):
+    def test_queued_hello_from_closed_receiver_is_not_reported_connected(self):
+        with tempfile.TemporaryDirectory() as d, socket.socket() as listener:
+            controller = Controller(Store(Path(d)), 'a' * 32, 'lab')
+            listener.bind(('127.0.0.1', 0))
+            listener.listen(1)
+            with socket.create_connection(listener.getsockname()) as right:
+                Wire(right).send({'type': 'hello', 'protocol': 1, 'token': 'a' * 32,
+                                  'device': 'esp32', 'receiver_id': 'stale-test',
+                                  'ssid': 'lab', 'pending_count': 0})
+                right.shutdown(socket.SHUT_WR)
+            left, _ = listener.accept()
+            with left:
+                with self.assertRaises(EOFError):
+                    controller.handshake(Wire(left))
+            self.assertFalse((Path(d) / 'devices.json').exists())
+
     def test_real_tcp_ten_mb_and_pending_cleared_after_ack(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)
