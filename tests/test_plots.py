@@ -90,6 +90,32 @@ class PlotDataTests(unittest.TestCase):
 
 @unittest.skipUnless(importlib.util.find_spec('matplotlib'), 'Optional Matplotlib not installed')
 class PlotRenderTests(unittest.TestCase):
+    def test_all_graphs_omit_legend_but_keep_titles_axes_and_notes(self):
+        from matplotlib.figure import Figure
+        savefig = Figure.savefig
+        rendered = []
+
+        def check_figure(fig, *args, **kwargs):
+            ax = fig.axes[0]
+            self.assertIsNone(ax.get_legend())
+            self.assertTrue(ax.get_title())
+            self.assertEqual(ax.get_xlabel(), 'Jarak (m)')
+            self.assertTrue(ax.get_ylabel())
+            self.assertTrue(any('Mean/SD' in text.get_text() for text in fig.texts))
+            self.assertTrue(ax.collections)
+            rendered.append(ax.get_title())
+            return savefig(fig, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as d:
+            root = Path(d)
+            write_fixture(root, 'esp32', [
+                {'rssi_mean_dbm': -50, 'throughput_mbps': 10, 'rtt_mean_ms': 5},
+                {'distance_m': 2, 'status': 'report_timeout'},
+            ])
+            with patch.object(Figure, 'savefig', new=check_figure):
+                self.assertEqual(len(plot_session(root)), 3)
+        self.assertEqual(len(rendered), 3)
+
     def test_three_real_pngs_and_csv_unchanged(self):
         with tempfile.TemporaryDirectory() as d:
             root = Path(d)

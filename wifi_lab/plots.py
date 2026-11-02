@@ -141,9 +141,6 @@ def plot_session(directory):
             ax.text(.5, .5, 'Belum ada nilai metrik valid.\nData kosong bukan nol.',
                     transform=ax.transAxes, ha='center', va='center', color='#555555')
             ax.set_yticks([])
-        handles, _ = ax.get_legend_handles_labels()
-        if handles:
-            ax.legend(loc='best', fontsize=8, framealpha=.92)
         fig.supxlabel('Mean/SD hanya uji sukses dan nilai valid; SD sampel jika n >= 2.\n'
                       'x = uji gagal; penanda di tepi bukan nilai metrik. Tidak ada interpolasi data kosong.',
                       fontsize=9, color='#555555')
