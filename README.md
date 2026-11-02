@@ -3,7 +3,7 @@
 Program eksperimen jarak **Windows → MacBook Air M4 (macOS Tahoe)** dan
 **Windows → ESP32-S3-DevKitC-1 N16R8**, bergantian. CLI Windows diluncurkan
 dengan `.bat`. Tidak perlu internet saat eksperimen.
-Grafik **Matplotlib** dapat diperbarui otomatis sesudah setiap uji dan dibuat ulang
+Grafik **Matplotlib** merangkum seluruh sesi, diekspor dengan `p`, saat timeout/keluar, dan dibuat ulang
 secara manual dari CSV. Pasang dependensi grafik sebelum eksperimen.
 
 **Status validasi:** lihat [docs/VALIDATION.md](docs/VALIDATION.md). Tes TCP lokal
@@ -237,7 +237,7 @@ hasil/<tanggal-jam-id>/
 ├── sampel_rssi.csv
 ├── sampel_rtt.csv
 ├── ringkasan.json
-└── grafik/                      # PNG diperbarui setelah uji/recovery jika Matplotlib ada
+└── grafik/                      # PNG keseluruhan sesi: p, timeout, atau keluar
     ├── jarak_rssi.png
     ├── jarak_throughput.png
     └── jarak_rtt.png
@@ -374,12 +374,35 @@ setup.bat
 setup_grafik.bat
 ```
 
-Kemudian jalankan `mulai.bat` seperti biasa. Tiga PNG diperbarui otomatis setelah
-setiap percobaan, pemulihan laporan, dan pencatatan gagal koneksi. Proses ini
-berjalan **setelah timer RTT/payload selesai dan hasil disimpan/di-ACK**, bukan
-di tengah pengukuran. Tidak membuka jendela grafik yang harus ditutup; cukup buka
+Kemudian jalankan `mulai.bat` seperti biasa. CSV/JSON tetap disimpan tiap uji,
+tetapi grafik **tidak** dibuat tiap meter, pengulangan, atau reconnect.
+Tiga PNG merangkum **seluruh jarak dan pengulangan dalam sesi**, bukan hanya uji terakhir:
+
+- Ketik **`p` lalu Enter** pada prompt jarak atau prompt menunggu ulang untuk ekspor sekarang.
+- Saat timeout/RTO uji atau menunggu koneksi, grafik diekspor otomatis jika sudah ada data;
+  sesi tidak diakhiri, sehingga pengujian masih bisa dilanjutkan.
+- **`q`**, Ctrl+C, atau akhir input mengekspor grafik terakhir sebelum keluar.
+
+Ekspor menyimpan file, bukan mencetak ke printer. Proses berjalan **di luar timer
+RTT/payload**, bukan di tengah pengukuran. Tidak membuka jendela grafik; cukup buka
 PNG di folder sesi jika ingin melihat hasilnya. Viewer gambar mungkin perlu
 dibuka ulang untuk melihat versi PNG terbaru.
+
+### Identitas dan spesifikasi penerima otomatis
+
+Saat tersambung, Windows menampilkan detail penerima yang tersedia dan menyimpannya
+ke `devices.json`, JSON tiap trial (`device_info`), serta kolom `device_*` di CSV.
+IP berasal dari koneksi TCP; nama/model mesin, OS/firmware, arsitektur, CPU,
+MAC, BSSID, RSSI awal, dan kapasitas memori berasal dari pendamping.
+Token tidak disalin ke metadata perangkat. Data ini dilaporkan perangkat, bukan
+verifikasi identitas hardware. Nilai yang tidak tersedia tetap kosong/tidak tersedia.
+
+ESP melaporkan model **chip**, bukan menebak nama board komersial. `heap_bytes`
+adalah heap yang tersedia untuk allocator, bukan kapasitas fisik SRAM.
+`psram_bytes` adalah PSRAM yang diaktifkan firmware; nol ketika PSRAM disabled
+tidak berarti chip tidak memiliki PSRAM. Mac melaporkan model identifier dan RAM
+fisik lewat `sysctl`; MAC Wi-Fi tidak ditebak bila akses native tidak tersedia.
+Firmware/pendamping lama tetap bisa tersambung, tetapi detail tambahan akan kosong.
 
 Untuk CSV lama tanpa mengulang eksperimen:
 

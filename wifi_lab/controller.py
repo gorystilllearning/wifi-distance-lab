@@ -64,7 +64,7 @@ class Controller:
         self.store, self.token, self.ssid = store, token, ssid
         self.report_timeout, self.rtt_timeout = report_timeout, rtt_timeout
 
-    def handshake(self, wire):
+    def handshake(self, wire, peer_ip=None):
         hello = expect(wire, 'hello', time.monotonic() + 10)
         supplied_token = hello.get('token')
         if (not isinstance(supplied_token, str) or not re.fullmatch(r'[0-9a-fA-F]{32}', supplied_token)
@@ -83,6 +83,15 @@ class Controller:
             report = expect(wire, 'result', time.monotonic() + 10)
             self.accept_result(report, hello)
             wire.send({'type': 'ack', 'test_id': report['test_id']})
+        from .devices import clean_device_info
+        hello['device_info'] = clean_device_info(hello.get('device_info'))
+        if peer_ip:
+            hello['device_info']['ip_address'] = peer_ip
+        devices_path = self.store.directory / 'devices.json'
+        import json
+        devices = json.loads(devices_path.read_text(encoding='utf-8')) if devices_path.exists() else {}
+        devices[receiver_id] = {key: hello[key] for key in ('device', 'receiver_id', 'ssid', 'device_info')}
+        atomic_json(devices_path, devices)
         return hello
 
     def accept_result(self, frame, peer):
@@ -115,6 +124,7 @@ class Controller:
         ident = uuid.uuid4().hex
         self.store.begin({'test_id': ident, 'session_id': self.store.directory.name,
                           'device': peer['device'], 'receiver_id': peer['receiver_id'],
+                          'device_info': peer.get('device_info', {}),
                           'ssid': self.ssid, 'distance_m': distance, 'repetition': repetition,
                           'timeout_s': timeout_s, 'status': 'connection_disconnected',
                           'report_status': 'not_available', 'bytes_sent_socket': 0,
@@ -125,6 +135,7 @@ class Controller:
         ident = uuid.uuid4().hex
         self.store.begin({'test_id': ident, 'session_id': self.store.directory.name,
                           'device': peer['device'], 'receiver_id': peer['receiver_id'],
+                          'device_info': peer.get('device_info', {}),
                           'ssid': self.ssid, 'distance_m': distance, 'repetition': repetition,
                           'timeout_s': timeout_s})
         rtts = []
@@ -258,14 +269,13 @@ def main():
         if old.get('status') == 'pending':
             store.update(ident, {'status': 'report_timeout', 'report_status': 'awaiting_recovery',
                                  'controller_reason': 'Windows stopped before result was committed'})
-    if store.records:
-        refresh_plots(directory)
     controller = Controller(store, token, ssid, args.report_timeout, args.rtt_timeout)
     print(f'\nHasil: {directory.resolve()}\nHotspot: {ssid}\nServer: {args.bind}:{args.port}\nTOKEN SESI: {token}')
     print('Masukkan token ini di pendamping. Jangan upload token/kata sandi ke GitHub.')
     print('Windows tetap di tempat. Target penerima yang dipindahkan. Hubungkan hanya satu target.')
     print('Progres kirim adalah byte masuk socket, BUKAN bukti byte sudah diterima target.')
-    print('Grafik PNG otomatis setelah uji jika Matplotlib terpasang (setup_grafik.bat); tidak membuka jendela.')
+    print('Grafik keseluruhan sesi: p + Enter untuk ekspor; otomatis saat timeout atau keluar (q/Ctrl+C).')
+    print('CSV tetap disimpan tiap uji. Grafik memerlukan Matplotlib (setup_grafik.bat); tidak membuka jendela.')
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as listener:
         if hasattr(socket, 'SO_EXCLUSIVEADDRUSE'):
             listener.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
@@ -282,18 +292,24 @@ def main():
                         conn, addr = listener.accept()
                         conn.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
                         wire = Wire(conn)
-                        peer = controller.handshake(wire)
+                        peer = controller.handshake(wire, peer_ip=addr[0])
                         print(f'Terhubung: {peer["device"]} / {peer["receiver_id"]} / {addr[0]}')
+                        from .devices import show_device_info
+                        show_device_info(peer.get('device_info', {}))
                         print('Laporan tertunda sudah disinkronkan. ringkasan.json diperbarui.')
-                        if store.records:
-                            refresh_plots(directory)
                     except (OSError, EOFError, ProtocolError) as exc:
                         if conn:
                             conn.close()
                         conn = None
                         print(f'Belum tersambung: {exc}')
+                        if isinstance(exc, TimeoutError) and store.records:
+                            refresh_plots(directory)
                         hint = '; f <jarak> catat gagal koneksi target terakhir' if peer else ''
-                        action = input(f'Enter menunggu lagi; q keluar{hint}: ').strip().lower()
+                        while True:
+                            action = input(f'Enter menunggu lagi; p ekspor grafik; q keluar{hint}: ').strip().lower()
+                            if action != 'p':
+                                break
+                            refresh_plots(directory)
                         if action == 'q':
                             break
                         if peer and action.startswith('f '):
@@ -308,11 +324,13 @@ def main():
                                         if r['device'] == peer['device'] and r.get('distance_m') == failed_distance]
                             lost = controller.record_unreachable(peer, failed_distance, max(previous, default=0) + 1, args.timeout)
                             print(f'Gagal koneksi dicatat: {lost["test_id"]}; byte/RSSI/throughput tidak diketahui.')
-                            refresh_plots(directory)
                         continue
-                text = input('\nJarak meter bulat >=1; r=hubungkan ulang/ganti target; q=keluar: ').strip().lower()
+                text = input('\nJarak meter bulat >=1; p=ekspor grafik; r=hubungkan ulang/ganti target; q=keluar: ').strip().lower()
                 if text == 'q':
                     break
+                if text == 'p':
+                    refresh_plots(directory)
+                    continue
                 if text == 'r':
                     conn.close()
                     conn = None
@@ -339,7 +357,9 @@ def main():
                     print(f'Throughput: {show(r.get("throughput_mbps"), "Mbps")}; RTT: {show(r.get("rtt_mean_ms"), "ms")}')
                     if r.get('failure_reason') or r.get('controller_reason'):
                         print(r.get('failure_reason') or r.get('controller_reason'))
-                    refresh_plots(directory)
+                    if (r['status'] in ('timeout', 'report_timeout') or
+                            r.get('controller_reason', '').startswith('TimeoutError:')):
+                        refresh_plots(directory)
                     if r['status'] != 'success':
                         print('Hasil gagal tetap disimpan. Sambungkan ulang; masukkan jarak sama untuk mencoba ulang.')
                         conn.close()
@@ -350,6 +370,8 @@ def main():
         finally:
             if conn:
                 conn.close()
+            if store.records:
+                refresh_plots(directory)
 
 
 if __name__ == '__main__':

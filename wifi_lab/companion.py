@@ -33,12 +33,18 @@ class PendingQueue:
         (self.directory / f'{ident}.json').unlink(missing_ok=True)
 
 
-def serve(wire, token, device, receiver_id, ssid, pending, read_rssi, once=False):
+def serve(wire, token, device, receiver_id, ssid, pending, read_rssi, once=False, device_info=None):
     queued = pending.items()
     if len(queued) > 16:
         raise ProtocolError('Too many pending reports; recover original session first')
+    from .devices import clean_device_info
+    info = clean_device_info(device_info)
+    try:
+        info.update(clean_device_info(read_rssi()))
+    except Exception:
+        pass  # Native radio details are optional, just like RSSI access.
     wire.send({'type': 'hello', 'protocol': 1, 'token': token, 'device': device,
-               'receiver_id': receiver_id, 'ssid': ssid, 'pending_count': len(queued)})
+               'receiver_id': receiver_id, 'ssid': ssid, 'pending_count': len(queued), 'device_info': info})
     expect(wire, 'welcome', time.monotonic() + 10)
     for frame in queued:
         wire.send(frame)
@@ -137,6 +143,8 @@ def main():
         identity.write_text('mac-' + uuid.uuid4().hex[:16], encoding='utf-8')
     receiver_id = identity.read_text(encoding='utf-8').strip()
     rssi = NativeRSSI(args.rssi_file, args.ssid)
+    from .devices import mac_device_info
+    device_info = mac_device_info()
     print('Hubungkan Wi-Fi Mac ke hotspot Windows, bukan jaringan lain. Ctrl+C untuk berhenti.')
     print('RSSI awal:', rssi())
     try:
@@ -144,7 +152,8 @@ def main():
             try:
                 with socket.create_connection((args.server, args.port), timeout=10) as sock:
                     sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
-                    serve(Wire(sock), token, 'macbook', receiver_id, args.ssid, queue, rssi)
+                    serve(Wire(sock), token, 'macbook', receiver_id, args.ssid, queue, rssi,
+                          device_info=device_info)
             except (OSError, EOFError, ProtocolError) as exc:
                 print(f'Koneksi: {exc}. Laporan tertunda tidak dihapus; mencoba ulang 3 detik.', flush=True)
                 time.sleep(3)

@@ -7,7 +7,11 @@ memakai delimiter akhir: panjang **10.000.000 byte** adalah framing-nya.
 `payload_ready` mencegah payload tiba sebelum receiver menyiapkan timer.
 
 1. Client → `hello`: protocol=1, token, device=`macbook|esp32`, receiver_id, ssid,
-   pending_count (ESP 0/1; Python 0..16).
+   pending_count (ESP 0/1; Python 0..16), optional `device_info` (flat object).
+   Metadata opsional meliputi name/model/os/firmware/architecture, alamat MAC/IP,
+   BSSID/RSSI, CPU dan kapasitas flash/RAM/heap/PSRAM yang tersedia. Server memakai
+   allowlist, membatasi panjang teks, membuang control character dan nilai invalid;
+   tidak menyimpan token di `devices.json`. Receiver lama tanpa metadata tetap valid.
 2. Server → `welcome`.
 3. Untuk setiap pending: client → `result`, server simpan secara durable → `ack`.
    Unknown ID/identitas ditolak; client mempertahankan laporan, gunakan sesi asli.

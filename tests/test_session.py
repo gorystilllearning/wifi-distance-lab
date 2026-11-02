@@ -28,7 +28,8 @@ class SessionTests(unittest.TestCase):
                     with socket.create_connection(listener.getsockname()) as s:
                         serve(Wire(s), 'a' * 32, 'macbook', 'mac-test', 'lab', queue,
                               lambda: {'rssi_dbm': None, 'reason': 'TEST: no radio on loopback',
-                                       'ssid': 'lab', 'bssid': 'test-only'}, once=True)
+                                        'ssid': 'lab', 'bssid': 'test-only'}, once=True,
+                              device_info={'model': 'TEST loopback receiver', 'ram_bytes': 1024})
                 except Exception as exc:
                     errors.append(exc)
             thread = threading.Thread(target=client)
@@ -43,6 +44,7 @@ class SessionTests(unittest.TestCase):
             self.assertFalse(thread.is_alive())
             self.assertEqual(errors, [])
             self.assertEqual(r['status'], 'success')
+            self.assertEqual(r['device_info']['model'], 'TEST loopback receiver')
             self.assertEqual(r['bytes_received'], PAYLOAD_BYTES)
             self.assertEqual(r['rtt_replies'], 3)
             self.assertEqual(r['rssi_samples_count'], 0)

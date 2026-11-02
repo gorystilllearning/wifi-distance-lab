@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from .protocol import PAYLOAD_BYTES
+from .devices import TEXT_FIELDS, NUMBER_FIELDS, clean_device_info
 
 COLUMNS = ['test_id', 'session_id', 'timestamp_utc', 'device', 'distance_m', 'repetition',
            'status', 'report_status', 'failure_reason', 'controller_reason', 'target_bytes',
@@ -17,7 +18,7 @@ COLUMNS = ['test_id', 'session_id', 'timestamp_utc', 'device', 'distance_m', 're
            'rssi_mean_dbm', 'rssi_min_dbm', 'rssi_max_dbm', 'rssi_samples_count',
            'rssi_reason', 'rtt_mean_ms', 'rtt_min_ms', 'rtt_max_ms', 'rtt_attempts',
            'rtt_replies', 'rtt_loss_pct', 'rtt_phase', 'timeout_s', 'ssid', 'bssid',
-           'receiver_id', 'measurement_source', 'timer']
+           'receiver_id', 'measurement_source', 'timer'] + ['device_' + k for k in TEXT_FIELDS + NUMBER_FIELDS]
 
 
 def atomic_text(path, text):
@@ -102,7 +103,9 @@ class Store:
             out = io.StringIO(newline='')
             writer = csv.DictWriter(out, fieldnames=COLUMNS, extrasaction='ignore')
             writer.writeheader()
-            writer.writerows(safe_csv(row) for row in grouped[device])
+            for row in grouped[device]:
+                details = {'device_' + k: v for k, v in clean_device_info(row.get('device_info')).items()}
+                writer.writerow(safe_csv({**row, **details}))
             atomic_text(self.directory / f'{device}_pengujian.csv', out.getvalue())
         for name, cols in [('rssi', ['elapsed_ms', 'rssi_dbm', 'reason', 'ssid', 'bssid', 'interface', 'source']),
                            ('rtt', ['seq', 'rtt_ms', 'reason'])]:

@@ -143,6 +143,22 @@ static bool handshake() {
   cJSON_AddStringToObject(hello, "receiver_id", receiverId.c_str());
   cJSON_AddStringToObject(hello, "ssid", WiFi.SSID().c_str());
   cJSON_AddNumberToObject(hello, "pending_count", LittleFS.exists("/pending.json") ? 1 : 0);
+  cJSON* info = cJSON_AddObjectToObject(hello, "device_info");
+  cJSON_AddStringToObject(info, "name", receiverId.c_str());
+  cJSON_AddStringToObject(info, "model", ESP.getChipModel());
+  cJSON_AddStringToObject(info, "os", "Arduino-ESP32 / FreeRTOS");
+  String firmware = String("wifi-distance-lab protocol 1 / ESP-IDF ") + ESP.getSdkVersion();
+  cJSON_AddStringToObject(info, "firmware", firmware.c_str());
+  cJSON_AddStringToObject(info, "architecture", "Xtensa");
+  cJSON_AddStringToObject(info, "mac_address", WiFi.macAddress().c_str());
+  cJSON_AddStringToObject(info, "ip_address", WiFi.localIP().toString().c_str());
+  cJSON_AddStringToObject(info, "bssid", WiFi.BSSIDstr().c_str());
+  cJSON_AddNumberToObject(info, "rssi_dbm", WiFi.RSSI());
+  cJSON_AddNumberToObject(info, "cpu_mhz", ESP.getCpuFreqMHz());
+  cJSON_AddNumberToObject(info, "cpu_cores", ESP.getChipCores());
+  cJSON_AddNumberToObject(info, "flash_bytes", ESP.getFlashChipSize());
+  cJSON_AddNumberToObject(info, "heap_bytes", ESP.getHeapSize());
+  cJSON_AddNumberToObject(info, "psram_bytes", ESP.getPsramSize());
   bool sent = sendFrame(hello);
   cJSON_Delete(hello);
   if (!sent) return false;
@@ -235,6 +251,9 @@ static bool validId(const String& id) {
 static bool runTrial(cJSON* request) {
   String id = text(request, "test_id");
   double timeoutSeconds = number(request, "timeout_s");
+  Serial.printf("Start diagnostics: valid_id=%d target_bytes=%.0f timeout_s=%.3f pending=%d free_fs=%u\n",
+                validId(id), number(request, "target_bytes"), timeoutSeconds,
+                LittleFS.exists("/pending.json"), (unsigned)(LittleFS.totalBytes() - LittleFS.usedBytes()));
   if (!validId(id) || number(request, "target_bytes") != TARGET || !isfinite(timeoutSeconds) ||
       timeoutSeconds <= 0 || timeoutSeconds > 600 || LittleFS.exists("/pending.json")) return false;
   if (LittleFS.totalBytes() - LittleFS.usedBytes() < MAX_REPORT * 2) return false;
@@ -399,6 +418,7 @@ void loop() {
   }
   cJSON* request = readFrame(100);
   if (request) {
+    Serial.printf("Control received: type=%s\n", text(request, "type"));
     if (!isType(request, "start") || !runTrial(request)) linkClient.stop();
     cJSON_Delete(request);
   }
